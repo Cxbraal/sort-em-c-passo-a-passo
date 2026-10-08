@@ -67,37 +67,50 @@ void insertionSort(int arr[], int n) {⟦fn⟧
 }⟦fim⟧
 ` + MAIN('insertionSort(arr, n);');
 
+  // Quick Sort no estilo do usuário: float v[], inicio/fim, troca inline com aux
   const QUICK = String.raw`#include <stdio.h>
 
-void troca(int *a, int *b) {⟦tFn⟧
-    int temp = *a;⟦t1⟧
-    *a = *b;⟦t2⟧
-    *b = temp;⟦t3⟧
-}
+void quickSort(float v[], int inicio, int fim)⟦qFn⟧
+{
+	int i, j;
+	float pivo, aux;
 
-// Separa a fatia em menores e maiores que o pivô (último elemento)
-int particiona(int arr[], int baixo, int alto) {⟦pFn⟧
-    int pivo = arr[alto];⟦pPivo⟧
-    int i = baixo - 1;⟦pI⟧
-    for (int j = baixo; j < alto; j++) {⟦pFor⟧
-        if (arr[j] < pivo) {⟦pIf⟧
-            i++;⟦pInc⟧
-            troca(&arr[i], &arr[j]);⟦pTroca⟧
-        }
-    }
-    troca(&arr[i + 1], &arr[alto]);⟦pFinal⟧
-    return i + 1;⟦pRet⟧
-}
+	if(inicio >= fim)⟦qIf⟧
+		return;⟦qRet⟧
 
-// Quick Sort: particiona e ordena cada lado recursivamente
-void quickSort(int arr[], int baixo, int alto) {⟦qFn⟧
-    if (baixo < alto) {⟦qIf⟧
-        int p = particiona(arr, baixo, alto);⟦qPart⟧
-        quickSort(arr, baixo, p - 1);⟦qEsq⟧
-        quickSort(arr, p + 1, alto);⟦qDir⟧
-    }
+	pivo = v[fim];⟦pPivo⟧
+	i = inicio;⟦pI⟧
+
+	for(j = inicio; j < fim; j++)⟦pFor⟧
+	{
+		if(v[j] < pivo)⟦pIf⟧
+		{
+			aux = v[i];⟦s1⟧
+			v[i] = v[j];⟦s2⟧
+			v[j] = aux;⟦s3⟧
+			i++;⟦pInc⟧
+		}
+	}
+
+	aux = v[i];⟦f1⟧
+	v[i] = v[fim];⟦f2⟧
+	v[fim] = aux;⟦f3⟧
+
+	printf("Pivo: %.2f | inicio: %d | fim: %d | posicao final do pivo: %d\n", pivo, inicio, fim, i);⟦pPrint⟧
+
+	quickSort(v, inicio, i - 1);⟦qEsq⟧
+	quickSort(v, i + 1, fim);⟦qDir⟧
 }⟦qFim⟧
-` + MAIN('quickSort(arr, 0, n - 1);');
+
+int main(void)
+{
+	float v[] = {__ARR__};⟦decl⟧
+	int n = sizeof(v) / sizeof(v[0]);⟦nDecl⟧
+	quickSort(v, 0, n - 1);⟦chama⟧
+	for (int i = 0; i < n; i++) printf("%.2f ", v[i]);⟦print⟧
+	printf("\n");
+	return 0;
+}`;
 
   const ALGORITMOS = {
     bubble: {

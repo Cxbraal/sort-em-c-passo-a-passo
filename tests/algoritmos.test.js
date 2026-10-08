@@ -69,15 +69,16 @@ test('código exibido: toda tag usada pelos geradores existe e nenhuma ⟦tag⟧
   for (const id of S.ORDEM) {
     const linhas = S.montarCodigo(id, [3, 1, 2]);
     assert.ok(!linhas.some((l) => l.includes('⟦') || l.includes('__ARR__')), `${id} vazou marcador`);
-    assert.ok(linhas.some((l) => l.includes('int arr[] = {3, 1, 2};')));
+    assert.ok(linhas.some((l) => /(int arr|float v)\[\] = \{3, 1, 2\};/.test(l)), `${id} sem o vetor do usuário`);
   }
 });
 
 test('troca por temp (bubble/selection/quick): vetor volta a ser permutação ao fim da troca', () => {
-  for (const id of ['bubble', 'selection', 'quick']) {
+  const FIM_TROCA = { bubble: ['t3'], selection: ['t3'], quick: ['s3', 'f3'] };
+  for (const [id, tags] of Object.entries(FIM_TROCA)) {
     for (const caso of CASOS) {
       for (const p of S.gerarPassos(id, caso)) {
-        if (p.tag === 't3') mesmoConjunto(p.arr, caso);
+        if (tags.includes(p.tag)) mesmoConjunto(p.arr, caso);
       }
     }
   }
@@ -99,11 +100,27 @@ test('quick: cada pivô fixado está no lugar certo (menores à esquerda, maiore
   for (const caso of CASOS) {
     const alvo = ordenado(caso);
     for (const p of S.gerarPassos('quick', caso)) {
-      if (p.tag !== 'pRet') continue;
+      if (p.tag !== 'pPrint') continue;
       const pos = p.ponteiros.p;
       assert.equal(p.arr[pos], alvo[pos], `pivô em ${pos} não bate com o ordenado`);
+      assert.ok(p.ordenados.includes(pos));
     }
   }
+});
+
+test('quick: cada partição imprime uma linha e o texto do printf bate com o estado', () => {
+  const caso = [64, 34, 25, 12, 22, 11, 90];
+  const impressos = S.gerarPassos('quick', caso).filter((p) => p.tag === 'pPrint');
+  assert.ok(impressos.length >= 1 && impressos.length <= caso.length);
+  assert.match(impressos[0].expl, /"Pivo: 90\.00 \| inicio: 0 \| fim: 6 \| posicao final do pivo: 6"/);
+});
+
+test('quick: declarações sem valor não aparecem em vars antes da atribuição', () => {
+  const passos = S.gerarPassos('quick', [5, 3, 8, 1]);
+  const entra = passos.find((p) => p.tag === 'qFn');
+  assert.deepEqual(Object.keys(entra.vars), ['inicio', 'fim']);
+  const pivo = passos.find((p) => p.tag === 'pPivo');
+  assert.deepEqual(Object.keys(pivo.vars), ['inicio', 'fim', 'pivo']);
 });
 
 test('contagem de comparações bate com a fórmula do bubble e do selection', () => {

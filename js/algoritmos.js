@@ -41,11 +41,11 @@
     return { arr, st, reg, passos, pilha };
   }
 
-  function prologo(g, chamada) {
+  function prologo(g, chamada, v = 'arr') {
     const n = g.arr.length;
-    g.reg('decl', `main declara o vetor arr com ${n} valores: ${lista(g.arr)}.`);
-    g.reg('nDecl', `n recebe o número de elementos: sizeof(arr) / sizeof(arr[0]) = ${n}.`, { vars: { n } });
-    g.reg('chama', `main chama ${chamada}. O vetor é passado por referência, então a função altera o próprio arr.`, { vars: { n } });
+    g.reg('decl', `main declara o vetor ${v} com ${n} valores: ${lista(g.arr)}.`);
+    g.reg('nDecl', `n recebe o número de elementos: sizeof(${v}) / sizeof(${v}[0]) = ${n}.`, { vars: { n } });
+    g.reg('chama', `main chama ${chamada}. O vetor é passado por referência, então a função altera o próprio ${v}.`, { vars: { n } });
   }
 
   function epilogo(g) {
@@ -216,6 +216,7 @@
   }
 
   // ----------------------------------------------------------------- Quick
+  // Versão do usuário: float v[], troca inline com aux, pivô = último, i começa em inicio.
   function quick(entrada, L) {
     const g = criarGravador(entrada, L);
     g.rotuloTrocas = 'trocas';
@@ -224,96 +225,91 @@
     const ord = new Set();
     const pilha = g.pilha;
     const R = (tag, expl, o = {}) => reg(tag, expl, { ordenados: [...ord], ...o });
-    const rotulo = (b, h) => `quickSort(${b}, ${h})`;
+    const rotulo = (b, h) => `quickSort(v, ${b}, ${h})`;
+    const f2 = (x) => x.toFixed(2);
 
-    function troca(ia, ib, ctx) {
-      pilha.push(`troca(&arr[${ia}], &arr[${ib}])`);
-      const base = { ...ctx, marcas: { ...ctx.marcas, [ia]: 'trocar', [ib]: 'trocar' } };
-      R('tFn', `Entra em troca: a aponta para arr[${ia}] e b aponta para arr[${ib}].`,
-        { ...base, vars: { ...ctx.vars, a: `&arr[${ia}]`, b: `&arr[${ib}]` } });
-      const temp = a[ia];
-      const vt = { ...ctx.vars, a: `&arr[${ia}]`, b: `&arr[${ib}]`, temp };
-      const flut = [{ nome: 'temp', valor: temp }];
-      R('t1', `temp guarda *a, ou seja, arr[${ia}] = ${temp}.`, { ...base, vars: vt, flutuantes: flut });
-      a[ia] = a[ib];
-      R('t2', `*a recebe *b: arr[${ia}] passa a valer ${a[ia]}, cópia de arr[${ib}].`, { ...base, vars: vt, flutuantes: flut });
-      a[ib] = temp;
-      st.trocas++;
-      R('t3', `*b recebe temp: arr[${ib}] passa a valer ${temp}. ${ia === ib ? 'a e b apontam para a mesma posição, então nada mudou de verdade.' : 'Os dois valores trocaram de lugar.'}`,
-        { ...base, vars: vt, flutuantes: flut });
-      pilha.pop();
-    }
+    function qs(inicio, fim) {
+      pilha.push(rotulo(inicio, fim));
+      const intervalo = inicio <= fim ? [inicio, fim] : null;
+      // variáveis locais: só aparecem depois de receberem valor (antes disso têm lixo na memória)
+      const loc = { inicio, fim };
+      R('qFn', `Entra em ${rotulo(inicio, fim)}: ordenar a fatia v[${inicio}..${fim}]. As variáveis i, j, pivo e aux são declaradas, mas ainda não têm valor.`,
+        { vars: loc, intervalo });
+      const base = inicio >= fim;
+      if (base && inicio === fim) ord.add(inicio);
+      R('qIf', `inicio (${inicio}) >= fim (${fim}) é ${base
+        ? `verdadeiro: ${inicio === fim ? 'a fatia tem um só elemento, que já está no lugar.' : 'a fatia é vazia.'} É o caso base.`
+        : `falso: a fatia tem ${fim - inicio + 1} elementos e precisa ser ordenada.`}`, { vars: loc, intervalo });
+      if (base) {
+        R('qRet', `return: não há nada a ordenar, então ${rotulo(inicio, fim)} volta para quem o chamou.`, { vars: loc, intervalo });
+        pilha.pop();
+        return;
+      }
 
-    function particiona(baixo, alto) {
-      pilha.push(`particiona(${baixo}, ${alto})`);
-      const intervalo = [baixo, alto];
-      R('pFn', `Entra em particiona(arr, ${baixo}, ${alto}): vai separar a fatia arr[${baixo}..${alto}] em menores e maiores que um pivô.`,
-        { vars: { baixo, alto }, intervalo });
-      const pivo = a[alto];
-      R('pPivo', `O pivô é o último elemento da fatia: pivo = arr[${alto}] = ${pivo}.`,
-        { vars: { baixo, alto, pivo }, intervalo, marcas: { [alto]: 'pivo' }, ponteiros: { pivo: alto } });
-      let i = baixo - 1;
-      const dados = (j) => {
-        const ponteiros = { pivo: alto };
-        if (i >= 0) ponteiros.i = i;
-        if (j !== undefined && j < alto) ponteiros.j = j;
+      loc.pivo = a[fim];
+      const pivo = loc.pivo;
+      R('pPivo', `pivo = v[${fim}] = ${pivo}: o pivô é o último elemento da fatia.`,
+        { vars: loc, intervalo, marcas: { [fim]: 'pivo' }, ponteiros: { pivo: fim } });
+      loc.i = inicio;
+      // i = próxima posição livre da região dos menores, que é v[inicio..i-1]
+      const dados = (marcas = {}, j) => {
+        const ponteiros = { pivo: fim, i: loc.i };
+        if (j !== undefined && j < fim) ponteiros.j = j;
         return {
-          vars: j === undefined ? { baixo, alto, pivo, i } : { baixo, alto, pivo, i, j },
-          intervalo, ponteiros, zona: i >= baixo ? [baixo, i] : null,
-          marcas: { [alto]: 'pivo' },
+          vars: loc, intervalo, ponteiros,
+          zona: loc.i > inicio ? [inicio, loc.i - 1] : null,
+          marcas: { [fim]: 'pivo', ...marcas },
         };
       };
-      R('pI', `i = ${i} (baixo - 1): i marca o fim da região dos menores que o pivô. Por enquanto ela está vazia.`, dados());
-      for (let j = baixo; j < alto; j++) {
-        const d = dados(j);
-        R('pFor', `j = ${j}: a condição j < ${alto} é verdadeira. Próximo elemento a examinar: arr[${j}] = ${a[j]}.`,
-          { ...d, marcas: { ...d.marcas, [j]: 'comparar' } });
+      R('pI', `i = ${loc.i} (inicio): i marca a próxima posição onde vai entrar um valor menor que o pivô. A região dos menores, v[inicio..i-1], ainda está vazia.`, dados());
+
+      for (let j = inicio; j < fim; j++) {
+        loc.j = j;
+        R('pFor', `j = ${j}: a condição j < ${fim} é verdadeira. Próximo elemento a examinar: v[${j}] = ${a[j]}.`, dados({ [j]: 'comparar' }, j));
         st.comp++;
         const menor = a[j] < pivo;
-        R('pIf', `arr[${j}] = ${a[j]} < pivo = ${pivo}? ${menor ? 'Sim. Ele pertence à região dos menores.' : 'Não. É maior ou igual ao pivô e fica onde está, do lado dos maiores.'}`,
-          { ...d, marcas: { ...d.marcas, [j]: 'comparar' } });
+        R('pIf', `v[${j}] = ${a[j]} < pivo = ${pivo}? ${menor ? 'Sim. Ele pertence à região dos menores e vai para a posição i.' : 'Não. É maior ou igual ao pivô e fica onde está, do lado dos maiores.'}`,
+          dados({ [j]: 'comparar' }, j));
         if (!menor) continue;
-        i++;
-        const d2 = dados(j);
-        R('pInc', `i++ faz i valer ${i}: a região dos menores cresce uma casa.`, { ...d2, marcas: { ...d2.marcas, [j]: 'comparar' } });
-        R('pTroca', `Chama troca(&arr[${i}], &arr[${j}]): leva arr[${j}] = ${a[j]} para dentro da região dos menores.`,
-          { ...d2, marcas: { ...d2.marcas, [j]: 'comparar', [i]: 'trocar' } });
-        troca(i, j, d2);
+        const i = loc.i;
+        const par = { [i]: 'trocar', [j]: 'trocar' };
+        loc.aux = a[i];
+        const flut = [{ nome: 'aux', valor: loc.aux }];
+        R('s1', `aux guarda v[${i}] = ${loc.aux}, para esse valor não se perder.`, { ...dados(par, j), flutuantes: flut });
+        a[i] = a[j];
+        R('s2', `v[${i}] recebe v[${j}]: agora vale ${a[i]}.`, { ...dados(par, j), flutuantes: flut });
+        a[j] = loc.aux;
+        st.trocas++;
+        R('s3', `v[${j}] recebe aux (${loc.aux}). ${i === j ? 'i e j são a mesma posição, então nada mudou de verdade.' : 'Os dois valores trocaram de lugar.'}`, { ...dados(par, j), flutuantes: flut });
+        loc.i++;
+        R('pInc', `i++ faz i valer ${loc.i}: a região dos menores cresceu uma casa.`, dados({}, j));
       }
-      const dFim = dados(alto);
-      R('pFor', `j = ${alto}: a condição j < ${alto} é falsa e o laço termina. Toda a fatia foi examinada.`, { ...dFim, ponteiros: { ...dFim.ponteiros } });
-      R('pFinal', `Chama troca(&arr[${i + 1}], &arr[${alto}]): coloca o pivô logo depois da região dos menores.`, { ...dFim, marcas: { [alto]: 'pivo', [i + 1]: 'trocar' } });
-      troca(i + 1, alto, dFim);
-      ord.add(i + 1);
-      R('pRet', `return ${i + 1}: o pivô ${pivo} está na posição ${i + 1}, definitiva. À esquerda só há valores menores, à direita só maiores ou iguais.`,
-        { vars: { baixo, alto, pivo, i }, intervalo, ponteiros: { p: i + 1 } });
-      pilha.pop();
-      return i + 1;
-    }
+      loc.j = fim;
+      R('pFor', `j = ${fim}: a condição j < ${fim} é falsa e o laço termina. Toda a fatia foi examinada.`, dados());
 
-    function qs(baixo, alto) {
-      pilha.push(rotulo(baixo, alto));
-      const intervalo = baixo <= alto ? [baixo, alto] : null;
-      R('qFn', `Entra em ${rotulo(baixo, alto)}: ordenar a fatia arr[${baixo}..${alto}].`, { vars: { baixo, alto }, intervalo });
-      if (baixo < alto) {
-        R('qIf', `baixo (${baixo}) < alto (${alto}) é verdadeiro: a fatia tem ${alto - baixo + 1} elementos e ainda precisa ser ordenada.`, { vars: { baixo, alto }, intervalo });
-        const p = particiona(baixo, alto);
-        R('qPart', `p recebe ${p}: o pivô já está no lugar certo. Faltam a fatia da esquerda, arr[${baixo}..${p - 1}], e a da direita, arr[${p + 1}..${alto}].`,
-          { vars: { baixo, alto, p }, intervalo, ponteiros: { p } });
-        R('qEsq', `Chama ${rotulo(baixo, p - 1)} para ordenar o lado esquerdo.`, { vars: { baixo, alto, p }, intervalo, ponteiros: { p } });
-        qs(baixo, p - 1);
-        R('qDir', `De volta em ${rotulo(baixo, alto)}. Agora chama ${rotulo(p + 1, alto)} para ordenar o lado direito.`, { vars: { baixo, alto, p }, intervalo, ponteiros: { p } });
-        qs(p + 1, alto);
-      } else {
-        if (baixo === alto) ord.add(baixo);
-        R('qIf', `baixo (${baixo}) < alto (${alto}) é falso: ${baixo === alto ? 'a fatia tem um só elemento, que já está no lugar.' : 'a fatia é vazia.'} É o caso base: nada a fazer.`,
-          { vars: { baixo, alto }, intervalo });
-      }
-      R('qFim', `${rotulo(baixo, alto)} termina e devolve o controle a quem o chamou.`, { vars: { baixo, alto }, intervalo });
+      const i = loc.i;
+      const par = { [i]: 'trocar', [fim]: 'trocar' };
+      loc.aux = a[i];
+      const flut = [{ nome: 'aux', valor: loc.aux }];
+      R('f1', `aux guarda v[${i}] = ${loc.aux}. Agora o pivô vai ocupar a posição i, logo depois da região dos menores.`, { ...dados(par), flutuantes: flut });
+      a[i] = a[fim];
+      R('f2', `v[${i}] recebe v[${fim}] (o pivô, ${a[i]}).`, { ...dados(par), flutuantes: flut });
+      a[fim] = loc.aux;
+      st.trocas++;
+      ord.add(i);
+      R('f3', `v[${fim}] recebe aux (${loc.aux}). ${i === fim ? 'O pivô já era o maior da fatia e continua no fim.' : 'O valor que estava em i foi para o fim da fatia.'} O pivô ${pivo} está na posição ${i}, definitiva.`,
+        { ...dados(par), flutuantes: flut, zona: null });
+      R('pPrint', `printf escreve na tela: "Pivo: ${f2(pivo)} | inicio: ${inicio} | fim: ${fim} | posicao final do pivo: ${i}".`,
+        { vars: loc, intervalo, ponteiros: { p: i } });
+      R('qEsq', `Chama ${rotulo(inicio, i - 1)} para ordenar o lado esquerdo (só valores menores que ${pivo}).`, { vars: loc, intervalo, ponteiros: { p: i } });
+      qs(inicio, i - 1);
+      R('qDir', `De volta em ${rotulo(inicio, fim)}. Agora chama ${rotulo(i + 1, fim)} para ordenar o lado direito (valores maiores ou iguais a ${pivo}).`, { vars: loc, intervalo, ponteiros: { p: i } });
+      qs(i + 1, fim);
+      R('qFim', `${rotulo(inicio, fim)} termina e devolve o controle a quem o chamou.`, { vars: loc, intervalo });
       pilha.pop();
     }
 
-    prologo(g, 'quickSort(arr, 0, n - 1)');
+    prologo(g, 'quickSort(v, 0, n - 1)', 'v');
     qs(0, n - 1);
     epilogo(g);
     return g.passos;
