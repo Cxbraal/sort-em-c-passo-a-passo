@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sort em C passo a passo</title>
+  <meta name="description" content="Veja Bubble, Selection, Insertion e Quick Sort em C rodando linha por linha, com barras animadas e os valores que você escolher.">
+  <meta name="color-scheme" content="dark">
+  <link rel="stylesheet" href="css/vscode.css">
+  <link rel="stylesheet" href="css/visual.css">
+</head>
+<body>
+<h1 class="sr-only">Visualizador de algoritmos de ordenação em C</h1>
+<div class="app" id="app">
+
+  <nav class="activitybar" aria-label="Barra de atividades">
+    <button type="button" class="act ativa" id="btn-explorer" aria-pressed="true" aria-label="Mostrar ou esconder o explorador" title="Explorador">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M17.5 0h-9L7 1.5V6H2.5L1 7.5v15.07L2.5 24h12.07L16 22.57V18h4.7l1.3-1.43V4.5L17.5 0zm0 2.12 2.38 2.38H17.5V2.12zm-3 20.38h-12v-15H7v9.07L8.5 18h6v4.5zm6-6h-12v-15H16V6h4.5v10.5z"/></svg>
+    </button>
+  </nav>
+
+  <aside class="sidebar" id="sidebar" aria-label="Explorador">
+    <div class="side-titulo">EXPLORADOR</div>
+    <section class="side-secao">
+      <h2 class="side-cab"><span class="chevron" aria-hidden="true">▾</span>ALGORITMOS</h2>
+      <ul class="arquivos" id="arquivos"></ul>
+    </section>
+    <section class="side-secao">
+      <h2 class="side-cab"><span class="chevron" aria-hidden="true">▾</span>ENTRADA</h2>
+      <form class="entrada" id="form-entrada" novalidate>
+        <label for="campo-valores">Seus valores (inteiros de 1 a 99)</label>
+        <input id="campo-valores" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="erro-entrada">
+        <p class="erro" id="erro-entrada" role="alert" hidden></p>
+        <button type="submit" class="btn">Aplicar valores</button>
+        <label for="campo-qtd" class="qtd">Quantidade aleatória: <output id="saida-qtd" for="campo-qtd">8</output></label>
+        <input id="campo-qtd" type="range" min="2" max="20" value="8">
+        <button type="button" class="btn secundario" id="btn-aleatorio">Gerar valores aleatórios</button>
+      </form>
+    </section>
+  </aside>
+
+  <main class="grupos">
+    <section class="grupo" aria-label="Código em C">
+      <div class="abas" id="abas" role="tablist" aria-label="Arquivos abertos"></div>
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="editor" id="editor" tabindex="0" role="region" aria-label="Código C do algoritmo"></div>
+    </section>
+
+    <section class="grupo" aria-label="Visualização">
+      <div class="abas">
+        <div class="aba ativa estatica"><span class="ico-viz" aria-hidden="true">▥</span>Visualização</div>
+      </div>
+      <div class="viz-topo">
+        <div class="flutuantes" id="flutuantes" aria-live="off"></div>
+        <div class="intervalo" id="intervalo"></div>
+      </div>
+      <div class="viz" id="viz" role="img" aria-label="Vetor sendo ordenado"></div>
+      <ul class="legenda" id="legenda" aria-label="Legenda de cores"></ul>
+      <div class="controles">
+        <div class="botoes">
+          <button type="button" class="ib" id="btn-reset" aria-label="Voltar ao início" title="Voltar ao início (Home)">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3 2h2v12H3zM14 2.5v11L6 8z"/></svg>
+          </button>
+          <button type="button" class="ib" id="btn-voltar" aria-label="Passo anterior" title="Passo anterior (←)">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10.5 2.5v11L3 8z"/></svg>
+          </button>
+          <button type="button" class="ib play" id="btn-play" aria-label="Executar" title="Executar ou pausar (Espaço)"></button>
+          <button type="button" class="ib" id="btn-avancar" aria-label="Próximo passo" title="Próximo passo (→)">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M5.5 2.5v11L13 8z"/></svg>
+          </button>
+          <label class="vel" for="campo-vel">Velocidade <input id="campo-vel" type="range" min="1" max="10" value="4"></label>
+        </div>
+        <input id="linha-tempo" type="range" min="0" max="0" value="0" aria-label="Linha do tempo da execução">
+      </div>
+    </section>
+
+    <section class="painel" aria-label="Passo a passo">
+      <div class="painel-abas" role="tablist">
+        <button type="button" role="tab" class="painel-aba ativa" id="tab-passo" data-aba="passo" aria-selected="true" aria-controls="painel-passo">PASSO A PASSO</button>
+        <button type="button" role="tab" class="painel-aba" id="tab-resumo" data-aba="resumo" aria-selected="false" aria-controls="painel-resumo">COMO FUNCIONA</button>
+        <span class="painel-info" id="painel-info"></span>
+      </div>
+      <div class="painel-corpo" id="painel-passo" role="tabpanel" aria-labelledby="tab-passo">
+        <div class="p-col p-explica">
+          <div class="p-linha" id="p-linha"></div>
+          <p class="p-texto" id="p-texto" aria-live="polite"></p>
+        </div>
+        <div class="p-col p-vars">
+          <h3>Variáveis</h3>
+          <table><tbody id="p-vars"></tbody></table>
+        </div>
+        <div class="p-col p-pilha">
+          <h3>Pilha de chamadas</h3>
+          <ol id="p-pilha"></ol>
+        </div>
+      </div>
+      <div class="painel-corpo resumo" id="painel-resumo" role="tabpanel" aria-labelledby="tab-resumo" hidden></div>
+    </section>
+  </main>
+
+  <footer class="statusbar" id="statusbar" aria-label="Barra de status"></footer>
+</div>
+
+<script src="js/codigos.js"></script>
+<script src="js/destaque.js"></script>
+<script src="js/entrada.js"></script>
+<script src="js/algoritmos.js"></script>
+<script src="js/visual.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
